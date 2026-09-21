@@ -48,6 +48,25 @@ public sealed class MainWindow : Window
         root.Children.Add(BuildContentArea());
         Content = root;
 
+        // WindowStartupLocation.CenterScreen was landing the window a little
+        // above the visible screen (Position.Y came out negative) — a leftover
+        // of it assuming native decorations to subtract when centering, which
+        // no longer exist now that this window uses WindowDecorations.None.
+        // That cut into the title bar strip, so the caption buttons' top edge
+        // opened off-screen. Re-centering manually against the actual working
+        // area, clamped to stay fully on-screen, fixes that without touching
+        // anything about the window's size or the rest of its behavior.
+        Opened += (_, _) =>
+        {
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            if (screen is null) return;
+            var area = screen.WorkingArea;
+            var scale = screen.Scaling;
+            int x = area.X + (int)((area.Width - Width * scale) / 2);
+            int y = area.Y + (int)((area.Height - Height * scale) / 2);
+            Position = new PixelPoint(x, Math.Max(area.Y, y));
+        };
+
         // Enter anywhere triggers Connect, mirroring Form.AcceptButton's effect in the
         // WinForms version — done here via KeyDown instead, since Avalonia's custom,
         // non-templated ModernButton has no equivalent "default button" concept to hook.

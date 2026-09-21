@@ -29,7 +29,12 @@ internal sealed class CaptionButton : Control
 
         PointerEntered += (_, _) => { _isHovered = true; InvalidateVisual(); };
         PointerExited += (_, _) => { _isHovered = false; _isPressed = false; InvalidateVisual(); };
-        PointerPressed += (_, _) => { _isPressed = true; InvalidateVisual(); };
+        // e.Handled = true on both: without it, the press/release bubbles up
+        // to the title bar's own PointerPressed handler, which calls
+        // BeginMoveDrag() for any click landing anywhere in the title bar —
+        // starting a native window-drag on top of the button press and
+        // swallowing the click before it ever reaches us.
+        PointerPressed += (_, e) => { _isPressed = true; InvalidateVisual(); e.Handled = true; };
         PointerReleased += (_, e) =>
         {
             bool wasPressed = _isPressed;
@@ -37,6 +42,7 @@ internal sealed class CaptionButton : Control
             InvalidateVisual();
             if (wasPressed && new Rect(Bounds.Size).Contains(e.GetPosition(this)))
                 Click?.Invoke(this, EventArgs.Empty);
+            e.Handled = true;
         };
     }
 
