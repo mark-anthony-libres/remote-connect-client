@@ -449,7 +449,7 @@ public sealed class MainWindow : Window
         headerRow.Children.Add(textStack);
         headerRow.Children.Add(clearAllButton);
 
-        var cardsFlow = new WrapPanel { Orientation = Orientation.Horizontal };
+        var cardsFlow = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 20, LineSpacing = 20 };
         foreach (var device in devices)
         {
             var (icon, background, foreground) = GetIconStyle(device.Type);

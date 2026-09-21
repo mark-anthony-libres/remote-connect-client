@@ -5,8 +5,9 @@ using RemoteDesktopClient.Core.Device;
 
 namespace RemoteDesktopClient.UI.Avalonia.Controls;
 
-/// <summary>One card in the Recent Connections grid: icon, name, status, ID,
-/// last-connected time, a Connect button and a small overflow menu button.
+/// <summary>One card in the Recent Connections grid: a tinted illustration
+/// banner for the device (icon + status), then name, ID, last-connected
+/// time, a Connect button and a small overflow menu button.
 /// Uses Canvas + absolute positions to mirror the original pixel layout exactly.</summary>
 internal sealed class RecentDeviceCard : Canvas
 {
@@ -19,7 +20,8 @@ internal sealed class RecentDeviceCard : Canvas
         const int menuButtonWidth = 40;
         const int buttonGap = 12;
         const int width = 252;
-        const int height = 224;
+        const int bannerHeight = 92;
+        const int height = 260;
 
         Width = width;
         Height = height;
@@ -30,15 +32,33 @@ internal sealed class RecentDeviceCard : Canvas
         Place(background, 0, 0);
         Children.Add(background);
 
+        // A larger, tinted illustration banner for the device — rounded only
+        // on top so it sits flush with the card underneath it — replacing
+        // the small corner icon with something closer to a device "photo".
+        var banner = new RoundedBackground
+        {
+            Width = width,
+            Height = bannerHeight,
+            Fill = iconBackground,
+            TopLeftRadius = 12,
+            TopRightRadius = 12,
+            BottomLeftRadius = 0,
+            BottomRightRadius = 0,
+        };
+        Place(banner, 0, 0);
+        Children.Add(banner);
+
+        const int bigIconSize = 64;
         var iconBadge = new IconBadge
         {
             Icon = icon,
-            TintBackground = iconBackground,
+            TintBackground = AppTheme.CardBackground,
             TintForeground = iconForeground,
-            Width = 40,
-            Height = 40,
+            Width = bigIconSize,
+            Height = bigIconSize,
+            CornerRadius = 16,
         };
-        Place(iconBadge, padding, padding);
+        Place(iconBadge, (width - bigIconSize) / 2.0, (bannerHeight - bigIconSize) / 2.0);
 
         var statusBadge = new StatusBadge
         {
@@ -46,7 +66,7 @@ internal sealed class RecentDeviceCard : Canvas
             Width = 76,
             Height = 22,
         };
-        Place(statusBadge, width - padding - statusBadge.Width, padding + 4);
+        Place(statusBadge, width - 14 - statusBadge.Width, 14);
 
         var nameLabel = new TextBlock
         {
@@ -60,7 +80,7 @@ internal sealed class RecentDeviceCard : Canvas
             TextWrapping = TextWrapping.Wrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        Place(nameLabel, padding, 70);
+        Place(nameLabel, padding, bannerHeight + 14);
 
         var idLabel = new TextBlock
         {
@@ -72,7 +92,7 @@ internal sealed class RecentDeviceCard : Canvas
             Height = 18,
             TextTrimming = TextTrimming.CharacterEllipsis,
         };
-        Place(idLabel, padding, 118);
+        Place(idLabel, padding, bannerHeight + 62);
 
         var lastConnectedLabel = new IconLabel
         {
@@ -81,9 +101,9 @@ internal sealed class RecentDeviceCard : Canvas
             Width = width - padding * 2,
             Height = 18,
         };
-        Place(lastConnectedLabel, padding, 142);
+        Place(lastConnectedLabel, padding, bannerHeight + 86);
 
-        int buttonRowY = 178;
+        int buttonRowY = bannerHeight + 116;
         int buttonHeight = 34;
         int connectButtonWidth = width - padding * 2 - menuButtonWidth - buttonGap;
 
