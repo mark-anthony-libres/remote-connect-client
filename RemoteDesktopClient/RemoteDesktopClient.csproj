@@ -13,4 +13,9 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Makes files under Assets/ loadable in code via avares://RemoteDesktopClient/Assets/... -->
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
 </Project>

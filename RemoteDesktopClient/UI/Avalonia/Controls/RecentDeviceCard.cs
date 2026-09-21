@@ -1,16 +1,23 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using RemoteDesktopClient.Core.Device;
 
 namespace RemoteDesktopClient.UI.Avalonia.Controls;
 
-/// <summary>One card in the Recent Connections grid: a tinted illustration
-/// banner for the device (icon + status), then name, ID, last-connected
-/// time, a Connect button and a small overflow menu button.
+/// <summary>One card in the Recent Connections grid: a photo banner for the
+/// device (image + status, with a small device-type badge), then name, ID,
+/// last-connected time, a Connect button and a small overflow menu button.
 /// Uses Canvas + absolute positions to mirror the original pixel layout exactly.</summary>
 internal sealed class RecentDeviceCard : Canvas
 {
+    // Loaded once and reused across every card instance rather than
+    // re-decoding the same file per card.
+    private static readonly Bitmap BannerImage = new(
+        AssetLoader.Open(new Uri("avares://RemoteDesktopClient/Assets/Images/device-banner.png")));
+
     public event EventHandler? ConnectClicked;
     public event EventHandler? MenuClicked;
 
@@ -32,33 +39,39 @@ internal sealed class RecentDeviceCard : Canvas
         Place(background, 0, 0);
         Children.Add(background);
 
-        // A larger, tinted illustration banner for the device — rounded only
-        // on top so it sits flush with the card underneath it — replacing
-        // the small corner icon with something closer to a device "photo".
-        var banner = new RoundedBackground
+        // Photo banner for the device — rounded only on top so it sits flush
+        // with the card underneath it. Border (not RoundedBackground) here
+        // specifically because it supports an ImageBrush background with
+        // independent corner radii natively, cropped/filled via Stretch.
+        var banner = new Border
         {
             Width = width,
             Height = bannerHeight,
-            Fill = iconBackground,
-            TopLeftRadius = 12,
-            TopRightRadius = 12,
-            BottomLeftRadius = 0,
-            BottomRightRadius = 0,
+            CornerRadius = new CornerRadius(12, 12, 0, 0),
+            ClipToBounds = true,
+            Background = new ImageBrush(BannerImage)
+            {
+                Stretch = Stretch.UniformToFill,
+                AlignmentY = AlignmentY.Top,
+            },
         };
         Place(banner, 0, 0);
         Children.Add(banner);
 
-        const int bigIconSize = 64;
+        // Small device-type badge, overlaid bottom-left on the photo — keeps
+        // the at-a-glance device type the old full-size icon badge gave,
+        // without competing with the photo for visual weight.
+        const int smallIconSize = 32;
         var iconBadge = new IconBadge
         {
             Icon = icon,
-            TintBackground = AppTheme.CardBackground,
+            TintBackground = iconBackground,
             TintForeground = iconForeground,
-            Width = bigIconSize,
-            Height = bigIconSize,
-            CornerRadius = 16,
+            Width = smallIconSize,
+            Height = smallIconSize,
+            CornerRadius = 10,
         };
-        Place(iconBadge, (width - bigIconSize) / 2.0, (bannerHeight - bigIconSize) / 2.0);
+        Place(iconBadge, 12, bannerHeight - smallIconSize - 12);
 
         var statusBadge = new StatusBadge
         {
