@@ -1,0 +1,521 @@
+<title>RemoteConnect Architecture</title>
+<style>
+  :root {
+    --paper: #fbfcfe;
+    --paper-raised: #ffffff;
+    --ink: #1a1d29;
+    --ink-soft: #6b7280;
+    --ink-faint: #9aa3af;
+    --line: #e4e8f3;
+    --line-soft: #eef0f7;
+    --accent: #2f5fed;
+    --accent-soft: #e3eafc;
+    --accent-softer: #eef3fe;
+    --status-done: #22a35a;
+    --status-done-soft: #e1faeb;
+    --status-stub: #e0792e;
+    --status-stub-soft: #fdebd9;
+    --code-bg: #10142a;
+    --code-ink: #d7ddf5;
+    --code-accent: #8fb0ff;
+    --code-line: #262c4a;
+    --shadow: 0 1px 2px rgba(26,29,41,0.04), 0 8px 24px -12px rgba(26,29,41,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0f1220;
+      --paper-raised: #161a2e;
+      --ink: #e7e9f5;
+      --ink-soft: #a3a9c2;
+      --ink-faint: #6c7290;
+      --line: #2a2f4a;
+      --line-soft: #20243c;
+      --accent: #7c9cff;
+      --accent-soft: #202a52;
+      --accent-softer: #1a2340;
+      --status-done: #4fd889;
+      --status-done-soft: #123324;
+      --status-stub: #f5a256;
+      --status-stub-soft: #3a2413;
+      --code-bg: #090b17;
+      --code-ink: #d7ddf5;
+      --code-accent: #8fb0ff;
+      --code-line: #20243c;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0f1220;
+    --paper-raised: #161a2e;
+    --ink: #e7e9f5;
+    --ink-soft: #a3a9c2;
+    --ink-faint: #6c7290;
+    --line: #2a2f4a;
+    --line-soft: #20243c;
+    --accent: #7c9cff;
+    --accent-soft: #202a52;
+    --accent-softer: #1a2340;
+    --status-done: #4fd889;
+    --status-done-soft: #123324;
+    --status-stub: #f5a256;
+    --status-stub-soft: #3a2413;
+    --code-bg: #090b17;
+    --code-ink: #d7ddf5;
+    --code-accent: #8fb0ff;
+    --code-line: #20243c;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    padding: 48px 20px 80px;
+    line-height: 1.55;
+  }
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  code, .mono, .tree, .commit-hash, .path {
+    font-family: "IBM Plex Mono", ui-monospace, "Consolas", monospace;
+  }
+
+  /* ---------- header ---------- */
+  header.hero {
+    margin-bottom: 56px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 5px 12px;
+    border-radius: 100px;
+    margin-bottom: 18px;
+  }
+  .eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--status-done);
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+  .hero p {
+    font-size: 16.5px;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  /* ---------- section shell ---------- */
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 6px;
+  }
+  h3.section-title {
+    font-size: 21px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    letter-spacing: -0.005em;
+  }
+  .section-sub {
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    max-width: 65ch;
+    margin: 0 0 24px;
+  }
+
+  /* ---------- folder tree ---------- */
+  .tree-card {
+    background: var(--code-bg);
+    border-radius: 14px;
+    padding: 26px 28px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  .tree {
+    font-size: 13.5px;
+    color: var(--code-ink);
+    white-space: pre;
+    line-height: 1.85;
+  }
+  .tree .dim { color: #565d84; }
+  .tree .file { color: var(--code-ink); }
+  .tree .dir { color: var(--code-accent); font-weight: 600; }
+  .tree .tag {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 100px;
+    margin-left: 10px;
+    display: inline-block;
+    vertical-align: 2px;
+  }
+  .tag.done { background: rgba(79,216,137,0.16); color: #6be3a3; }
+  .tag.stub { background: rgba(245,162,86,0.16); color: #f5a256; }
+
+  /* ---------- responsibility grid ---------- */
+  .resp-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 620px) {
+    .resp-grid { grid-template-columns: 1fr; }
+  }
+  .resp-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .resp-card .path {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 6px;
+    word-break: break-word;
+  }
+  .resp-card p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- dependency diagram ---------- */
+  .dep-diagram {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 32px 28px;
+  }
+  .dep-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .dep-box {
+    padding: 14px 22px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14.5px;
+    text-align: center;
+    min-width: 140px;
+  }
+  .dep-box.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .dep-box .sub {
+    display: block;
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .dep-arrow {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--ink-faint);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dep-arrow .line { width: 32px; height: 1px; background: var(--ink-faint); }
+
+  .stub-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    padding-top: 22px;
+    border-top: 1px dashed var(--line);
+  }
+  .stub-box {
+    border: 1px dashed var(--ink-faint);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .stub-box .sub {
+    display: block;
+    font-weight: 400;
+    font-size: 11px;
+    margin-top: 3px;
+    color: var(--status-stub);
+  }
+  .dep-caption {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-faint);
+    margin-top: 18px;
+  }
+
+  /* ---------- git timeline ---------- */
+  .git-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px;
+  }
+  .branch {
+    display: flex;
+    gap: 16px;
+  }
+  .branch-rail {
+    width: 2px;
+    background: var(--line);
+    position: relative;
+    flex-shrink: 0;
+    margin-left: 5px;
+  }
+  .branch-rail.master { background: var(--status-done); }
+  .branch-rail.feature { background: var(--accent); }
+  .branch-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 14px;
+  }
+  .branch-label.master { background: var(--status-done-soft); color: var(--status-done); }
+  .branch-label.feature { background: var(--accent-soft); color: var(--accent); }
+  .commit {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .commit::before {
+    content: "";
+    position: absolute;
+    left: -21px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--paper-raised);
+    border: 2px solid var(--ink-faint);
+  }
+  .commit.master::before { border-color: var(--status-done); }
+  .commit.feature::before { border-color: var(--accent); }
+  .commit-hash {
+    font-size: 12px;
+    color: var(--ink-faint);
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .commit-msg { font-size: 14px; }
+  .commit-msg .note { color: var(--ink-soft); font-size: 12.5px; display: block; margin-top: 2px; }
+  .git-groups {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  @media (max-width: 620px) {
+    .git-groups { grid-template-columns: 1fr; gap: 28px; }
+  }
+  .revert-note {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .revert-note code {
+    background: var(--line-soft);
+    padding: 1px 7px;
+    border-radius: 5px;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<div class="page">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>avalonia-migration branch</span>
+    <h1>RemoteConnect project architecture</h1>
+    <p>A single .NET project split into clean-architecture folders — one real UI implementation and one real domain model today, with named, empty boundaries waiting for WebRTC, signaling and native capture to land later.</p>
+  </header>
+
+  <section id="tree">
+    <h2>Folder structure</h2>
+    <h3 class="section-title">What's actually on disk</h3>
+    <p class="section-sub">Everything under <span class="mono">RemoteDesktopClient/</span>. Green tags are real, working code; amber tags are empty placeholder folders — structure only, no implementation, on purpose.</p>
+
+    <div class="tree-card">
+<div class="tree"><span class="dim">RemoteDesktopClient/</span>
+├── <span class="file">Program.cs</span>                    <span class="dim">entry point</span>
+│
+├── <span class="dir">Core/</span>                        <span class="tag done">implemented</span>
+│   └── <span class="dir">Device/</span>
+│       └── <span class="file">DeviceConnection.cs</span>    <span class="dim">DeviceConnection, ConnectionStatus, DeviceType</span>
+│
+├── <span class="dir">UI/</span>
+│   └── <span class="dir">Avalonia/</span>                 <span class="tag done">implemented</span>
+│       ├── <span class="file">App.cs</span>                 <span class="dim">Application bootstrap, Fluent theme</span>
+│       ├── <span class="file">AppTheme.cs</span>             <span class="dim">colors + fonts</span>
+│       ├── <span class="file">MainWindow.cs</span>           <span class="dim">header · content · footer</span>
+│       └── <span class="dir">Controls/</span>              <span class="dim">10 custom-drawn controls</span>
+│
+├── <span class="dir">WebRTC/</span>                     <span class="tag stub">empty</span>
+├── <span class="dir">Signaling/</span>                  <span class="tag stub">empty</span>
+├── <span class="dir">Native/</span>
+│   ├── <span class="dir">Windows/</span>                 <span class="tag stub">empty</span>
+│   └── <span class="dir">macOS/</span>                   <span class="tag stub">empty</span>
+└── <span class="dir">Services/</span>                   <span class="tag stub">empty</span></div>
+    </div>
+  </section>
+
+  <section id="responsibilities">
+    <h2>Reference</h2>
+    <h3 class="section-title">Who does what</h3>
+    <p class="section-sub">The files inside <span class="mono">UI/Avalonia/</span> and <span class="mono">Core/Device/</span> — everything else is an intentionally empty folder.</p>
+
+    <div class="resp-grid">
+      <div class="resp-card">
+        <span class="path">Program.cs</span>
+        <p>Configures and starts Avalonia — <span class="mono">BuildAvaloniaApp().StartWithClassicDesktopLifetime(args)</span>.</p>
+      </div>
+      <div class="resp-card">
+        <span class="path">UI/Avalonia/App.cs</span>
+        <p>The Application subclass. Registers the Fluent theme, creates MainWindow once the framework finishes initializing.</p>
+      </div>
+      <div class="resp-card">
+        <span class="path">UI/Avalonia/MainWindow.cs</span>
+        <p>Builds the whole window in code — header, three-card content column, footer — plus the mock device list and DeviceType→icon mapping.</p>
+      </div>
+      <div class="resp-card">
+        <span class="path">UI/Avalonia/AppTheme.cs</span>
+        <p>Every color and font as a named constant, so all custom controls stay visually consistent.</p>
+      </div>
+      <div class="resp-card">
+        <span class="path">UI/Avalonia/Controls/*.cs</span>
+        <p>One class per visual piece — ModernButton, IconTextBox, IconBadge, IdChip, StatusBadge, RecentDeviceCard and the hand-drawn icon set.</p>
+      </div>
+      <div class="resp-card">
+        <span class="path">Core/Device/DeviceConnection.cs</span>
+        <p>DeviceConnection, ConnectionStatus, DeviceType — zero dependency on Avalonia or any drawing type.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="dependencies">
+    <h2>Layering</h2>
+    <h3 class="section-title">Dependency direction</h3>
+    <p class="section-sub">Only one edge exists today. Everything below the dashed line is a named destination, not a dependency yet.</p>
+
+    <div class="dep-diagram">
+      <div class="dep-row">
+        <div class="dep-box active">UI / Avalonia<span class="sub">windows, controls, icons</span></div>
+        <div class="dep-arrow"><span class="line"></span>depends&nbsp;on<span class="line"></span></div>
+        <div class="dep-box active">Core / Device<span class="sub">platform-independent model</span></div>
+      </div>
+      <div class="stub-row">
+        <div class="stub-box">WebRTC<span class="sub">not started</span></div>
+        <div class="stub-box">Signaling<span class="sub">not started</span></div>
+        <div class="stub-box">Native / Windows<span class="sub">not started</span></div>
+        <div class="stub-box">Native / macOS<span class="sub">not started</span></div>
+        <div class="stub-box">Services<span class="sub">not started</span></div>
+      </div>
+      <p class="dep-caption">DeviceConnection knows it has a DeviceType — it doesn't know what an icon or a color is. The UI decides how a DeviceType gets drawn, never the other way round.</p>
+    </div>
+  </section>
+
+  <section id="git">
+    <h2>Revertability</h2>
+    <h3 class="section-title">Branch &amp; commit history</h3>
+    <p class="section-sub">The WinForms app is preserved untouched on <span class="mono">master</span>. The Avalonia rewrite happened entirely on a separate branch, as incremental, individually-revertable commits.</p>
+
+    <div class="git-card">
+      <div class="git-groups">
+        <div>
+          <span class="branch-label master">master</span>
+          <div class="branch">
+            <div class="branch-rail master"></div>
+            <div style="flex:1">
+              <div class="commit master">
+                <span class="commit-hash">aac1905</span>
+                <span class="commit-msg">Checkpoint: WinForms UI before Avalonia migration<span class="note">the working WinForms app, frozen</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <span class="branch-label feature">avalonia-migration</span>
+          <div class="branch">
+            <div class="branch-rail feature"></div>
+            <div style="flex:1">
+              <div class="commit feature">
+                <span class="commit-hash">e54c448</span>
+                <span class="commit-msg">Add Avalonia packages, retarget cross-platform<span class="note">project won't build yet</span></span>
+              </div>
+              <div class="commit feature">
+                <span class="commit-hash">e928d19</span>
+                <span class="commit-msg">Rewrite UI layer in Avalonia, replacing WinForms<span class="note">full port, Core untouched</span></span>
+              </div>
+              <div class="commit feature">
+                <span class="commit-hash">9bb7dd4</span>
+                <span class="commit-msg">Fix content column not centering on wide windows<span class="note">found &amp; fixed during verification</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="revert-note">
+        Back to WinForms at any point: <code>git checkout master</code>. Undo just the centering fix: <code>git revert 9bb7dd4</code>. Nothing on <code>master</code> was ever touched.
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>RemoteDesktopClient · net10.0 · Avalonia 12.1.2</span>
+    <span>Core/Device has zero UI dependencies</span>
+  </footer>
+
+</div>

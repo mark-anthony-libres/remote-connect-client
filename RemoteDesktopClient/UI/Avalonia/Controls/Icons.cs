@@ -20,6 +20,10 @@ internal enum IconKind
     Check,
     Play,
     Chevron,
+    WindowMinimize,
+    WindowMaximize,
+    WindowRestore,
+    WindowClose,
 }
 
 /// <summary>
@@ -51,7 +55,34 @@ internal static class Icons
             case IconKind.Check: DrawCheck(g, bounds, pen); break;
             case IconKind.Play: DrawPlay(g, bounds, brush); break;
             case IconKind.Chevron: DrawChevron(g, bounds, pen); break;
+            case IconKind.WindowMinimize: DrawWindowMinimize(g, bounds, pen); break;
+            case IconKind.WindowMaximize: DrawWindowMaximize(g, bounds, pen); break;
+            case IconKind.WindowRestore: DrawWindowRestore(g, bounds, pen); break;
+            case IconKind.WindowClose: DrawWindowClose(g, bounds, pen); break;
         }
+    }
+
+    // Standard Windows caption-button glyphs (minimize/maximize/restore/close),
+    // drawn at 1x scale — Fluent renders these as a single hairline stroke.
+    private static void DrawWindowMinimize(DrawingContext g, Rect b, Pen pen) =>
+        g.DrawLine(pen, new Point(b.Left, b.Bottom - b.Height / 2), new Point(b.Right, b.Bottom - b.Height / 2));
+
+    private static void DrawWindowMaximize(DrawingContext g, Rect b, Pen pen) =>
+        g.DrawRectangle(null, pen, b);
+
+    private static void DrawWindowRestore(DrawingContext g, Rect b, Pen pen)
+    {
+        double inset = b.Width * 0.22;
+        var back = new Rect(b.Left + inset, b.Top, b.Width - inset, b.Height - inset);
+        var front = new Rect(b.Left, b.Top + inset, b.Width - inset, b.Height - inset);
+        g.DrawRectangle(null, pen, back);
+        g.DrawRectangle(new SolidColorBrush(Colors.Transparent), pen, front);
+    }
+
+    private static void DrawWindowClose(DrawingContext g, Rect b, Pen pen)
+    {
+        g.DrawLine(pen, new Point(b.Left, b.Top), new Point(b.Right, b.Bottom));
+        g.DrawLine(pen, new Point(b.Right, b.Top), new Point(b.Left, b.Bottom));
     }
 
     private static void DrawMonitor(DrawingContext g, Rect b, Pen pen)

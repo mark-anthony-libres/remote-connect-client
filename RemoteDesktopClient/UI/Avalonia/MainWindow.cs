@@ -23,6 +23,23 @@ public sealed class MainWindow : Window
         Height = 840;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(AppTheme.Background);
+        CanResize = true;
+        // Investigation showed the native title bar's caption buttons don't get
+        // drawn by Windows on this system at all — verified via PrintWindow:
+        // WS_MINIMIZEBOX/WS_MAXIMIZEBOX and every relevant extended style bit
+        // were confirmed correct at the Win32 level, yet DWM rendered nothing in
+        // that area, and neither a resize nudge, a maximize/restore toggle, nor
+        // toggling CanResize forced it to. Switching to Avalonia's own
+        // client-side decorations (its FluentTheme-drawn title bar) sidesteps
+        // native chrome entirely instead of depending on it.
+        //
+        // WindowDecorations must NOT stay Full here: Full + ExtendClientAreaTo-
+        // DecorationsHint=true asks for native decorations AND extends custom
+        // content over them at the same time, so Windows keeps drawing its own
+        // caption buttons (the ones that only painted after a resize) while the
+        // CaptionButton row below draws a second, separate set on top of them.
+        WindowDecorations = WindowDecorations.None;
+        ExtendClientAreaToDecorationsHint = true;
 
         var root = new DockPanel();
         root.Children.Add(BuildHeaderBar());
@@ -40,7 +57,12 @@ public sealed class MainWindow : Window
         };
     }
 
-    private static Control BuildHeaderBar()
+    // Instance method (not static) — the caption buttons need `this` to call
+    // BeginMoveDrag/WindowState/Close(). Client-side decorations
+    // (ExtendClientAreaToDecorationsHint, see the constructor) mean there's no
+    // native title bar at all, so this header is now also the draggable title
+    // bar and the only source of minimize/maximize/close.
+    private Control BuildHeaderBar()
     {
         var header = new Border
         {
@@ -50,32 +72,83 @@ public sealed class MainWindow : Window
             BorderBrush = new SolidColorBrush(AppTheme.CardBorder),
             BorderThickness = new Thickness(0, 0, 0, 1),
         };
+        // Dragging any part of the header not covered by an interactive
+        // control (logo, title, avatar, buttons) moves the window, and
+        // double-clicking it toggles maximize — the same behavior a native
+        // title bar gives for free.
+        header.PointerPressed += (_, e) =>
+        {
+            if (!e.GetCurrentPoint(header).Properties.IsLeftButtonPressed)
+                return;
+            if (e.ClickCount == 2)
+                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            else
+                BeginMoveDrag(e);
+        };
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
         var logoMark = new LogoMark { Width = 40, Height = 40, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24, 0, 12, 0) };
         Grid.SetColumn(logoMark, 0);
 
-        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 0) };
+        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+        var subtitleLabel = TextBlockOf("Securely connect to your devices, anytime.", AppTheme.FontSubtitle, AppTheme.TextSecondary, new Thickness(0, 2, 0, 0));
+        // Without trimming, a plain TextBlock always reports its full natural
+        // width as its minimum, so the Star column below could never actually
+        // shrink it to make room for the caption buttons — it would just push
+        // them past the window's edge instead.
+        subtitleLabel.TextTrimming = TextTrimming.CharacterEllipsis;
         titleStack.Children.Add(TextBlockOf("RemoteConnect", AppTheme.FontTitle, AppTheme.TextPrimary));
-        titleStack.Children.Add(TextBlockOf("Securely connect to your devices, anytime.", AppTheme.FontSubtitle, AppTheme.TextSecondary, new Thickness(0, 2, 0, 0)));
+        titleStack.Children.Add(subtitleLabel);
         Grid.SetColumn(titleStack, 1);
 
-        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 24, 0), Spacing = 20 };
+        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0), Spacing = 20 };
         var avatar = new AvatarBadge { Width = 56, Height = 40 };
         var settingsButton = new ModernButton { Text = "Settings", Icon = IconKind.Gear, Variant = ButtonVariant.Subtle, Width = 112, Height = 40 };
         rightStack.Children.Add(avatar);
         rightStack.Children.Add(settingsButton);
         Grid.SetColumn(rightStack, 2);
 
+        var captionButtons = BuildCaptionButtons();
+        Grid.SetColumn(captionButtons, 3);
+
         grid.Children.Add(logoMark);
         grid.Children.Add(titleStack);
         grid.Children.Add(rightStack);
+        grid.Children.Add(captionButtons);
         header.Child = grid;
         return header;
+    }
+
+    private Control BuildCaptionButtons()
+    {
+        var stack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Stretch };
+
+        var minimizeButton = new CaptionButton { Icon = IconKind.WindowMinimize };
+        minimizeButton.Click += (_, _) => WindowState = WindowState.Minimized;
+
+        var maximizeButton = new CaptionButton { Icon = IconKind.WindowMaximize };
+        maximizeButton.Click += (_, _) =>
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        // Keeps the icon in sync however WindowState changes — not just from
+        // this button, but Aero-snap, Win+Up/Down, double-clicking the header, etc.
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WindowStateProperty)
+                maximizeButton.Icon = WindowState == WindowState.Maximized ? IconKind.WindowRestore : IconKind.WindowMaximize;
+        };
+
+        var closeButton = new CaptionButton { Icon = IconKind.WindowClose, IsCloseButton = true };
+        closeButton.Click += (_, _) => Close();
+
+        stack.Children.Add(minimizeButton);
+        stack.Children.Add(maximizeButton);
+        stack.Children.Add(closeButton);
+        return stack;
     }
 
     private static Control BuildFooterBar()
