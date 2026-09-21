@@ -112,16 +112,19 @@ public sealed class MainWindow : Window
 
     // Content: This Device (hero, fixed) + Remote Connection (fixed) + Recent
     // Connections (fills whatever vertical space remains, and scrolls
-    // internally past that). MaxWidth + Stretch on the outer Grid caps and
+    // internally past that). MaxWidth + Center on the outer Grid caps and
     // centers the column on wide windows without any manual resize handling —
     // Avalonia's layout system does this declaratively, unlike WinForms'
     // TableLayoutPanel, which needed a hand-written Reflow() on every resize.
+    // (HorizontalAlignment.Stretch does NOT do this: a Stretch child capped by
+    // MaxWidth below the space it's given renders at the start of that space,
+    // not centered within it — verified by rendering at 1800px width.)
     private Control BuildContentArea()
     {
         var layout = new Grid
         {
             MaxWidth = 1400,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(28, 20, 28, 16),
         };
         // Each row is the card's intended content height PLUS its own bottom
