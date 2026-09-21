@@ -42,6 +42,7 @@ public sealed class MainWindow : Window
         ExtendClientAreaToDecorationsHint = true;
 
         var root = new DockPanel();
+        root.Children.Add(BuildTitleBar());
         root.Children.Add(BuildHeaderBar());
         root.Children.Add(BuildFooterBar());
         root.Children.Add(BuildContentArea());
@@ -57,12 +58,35 @@ public sealed class MainWindow : Window
         };
     }
 
-    // Instance method (not static) — the caption buttons need `this` to call
-    // BeginMoveDrag/WindowState/Close(). Client-side decorations
-    // (ExtendClientAreaToDecorationsHint, see the constructor) mean there's no
-    // native title bar at all, so this header is now also the draggable title
-    // bar and the only source of minimize/maximize/close.
-    private Control BuildHeaderBar()
+    // A slim, dedicated title bar strip above the header — just the window
+    // drag region and the caption buttons, the same separation a native
+    // title bar has from an app's own toolbar. The header below is back to
+    // being just a toolbar; it no longer drags the window itself.
+    private Control BuildTitleBar()
+    {
+        var titleBar = new Border
+        {
+            [DockPanel.DockProperty] = Dock.Top,
+            Height = 36,
+            Background = new SolidColorBrush(AppTheme.CardBackground),
+        };
+        titleBar.PointerPressed += (_, e) =>
+        {
+            if (!e.GetCurrentPoint(titleBar).Properties.IsLeftButtonPressed)
+                return;
+            if (e.ClickCount == 2)
+                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            else
+                BeginMoveDrag(e);
+        };
+
+        var captionButtons = BuildCaptionButtons();
+        captionButtons.HorizontalAlignment = HorizontalAlignment.Right;
+        titleBar.Child = captionButtons;
+        return titleBar;
+    }
+
+    private static Control BuildHeaderBar()
     {
         var header = new Border
         {
@@ -72,54 +96,30 @@ public sealed class MainWindow : Window
             BorderBrush = new SolidColorBrush(AppTheme.CardBorder),
             BorderThickness = new Thickness(0, 0, 0, 1),
         };
-        // Dragging any part of the header not covered by an interactive
-        // control (logo, title, avatar, buttons) moves the window, and
-        // double-clicking it toggles maximize — the same behavior a native
-        // title bar gives for free.
-        header.PointerPressed += (_, e) =>
-        {
-            if (!e.GetCurrentPoint(header).Properties.IsLeftButtonPressed)
-                return;
-            if (e.ClickCount == 2)
-                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-            else
-                BeginMoveDrag(e);
-        };
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
         grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
         var logoMark = new LogoMark { Width = 40, Height = 40, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24, 0, 12, 0) };
         Grid.SetColumn(logoMark, 0);
 
-        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        var subtitleLabel = TextBlockOf("Securely connect to your devices, anytime.", AppTheme.FontSubtitle, AppTheme.TextSecondary, new Thickness(0, 2, 0, 0));
-        // Without trimming, a plain TextBlock always reports its full natural
-        // width as its minimum, so the Star column below could never actually
-        // shrink it to make room for the caption buttons — it would just push
-        // them past the window's edge instead.
-        subtitleLabel.TextTrimming = TextTrimming.CharacterEllipsis;
+        var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         titleStack.Children.Add(TextBlockOf("RemoteConnect", AppTheme.FontTitle, AppTheme.TextPrimary));
-        titleStack.Children.Add(subtitleLabel);
+        titleStack.Children.Add(TextBlockOf("Securely connect to your devices, anytime.", AppTheme.FontSubtitle, AppTheme.TextSecondary, new Thickness(0, 2, 0, 0)));
         Grid.SetColumn(titleStack, 1);
 
-        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0), Spacing = 20 };
+        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 24, 0), Spacing = 20 };
         var avatar = new AvatarBadge { Width = 56, Height = 40 };
         var settingsButton = new ModernButton { Text = "Settings", Icon = IconKind.Gear, Variant = ButtonVariant.Subtle, Width = 112, Height = 40 };
         rightStack.Children.Add(avatar);
         rightStack.Children.Add(settingsButton);
         Grid.SetColumn(rightStack, 2);
 
-        var captionButtons = BuildCaptionButtons();
-        Grid.SetColumn(captionButtons, 3);
-
         grid.Children.Add(logoMark);
         grid.Children.Add(titleStack);
         grid.Children.Add(rightStack);
-        grid.Children.Add(captionButtons);
         header.Child = grid;
         return header;
     }
@@ -135,7 +135,7 @@ public sealed class MainWindow : Window
         maximizeButton.Click += (_, _) =>
             WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         // Keeps the icon in sync however WindowState changes — not just from
-        // this button, but Aero-snap, Win+Up/Down, double-clicking the header, etc.
+        // this button, but Aero-snap, Win+Up/Down, double-clicking the title bar, etc.
         PropertyChanged += (_, e) =>
         {
             if (e.Property == WindowStateProperty)
