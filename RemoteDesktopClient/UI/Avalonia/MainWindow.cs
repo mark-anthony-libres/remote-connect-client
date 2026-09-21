@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -223,9 +222,13 @@ public sealed class MainWindow : Window
         // margin (200+20, 178+20) — matching the same content+margin sizing
         // used in the WinForms version, since Margin still subtracts from a
         // fixed-size row's available space in Avalonia's layout system too.
+        // Recent Connections' row is Auto (not Star): the page now scrolls as
+        // a whole (see the ScrollViewer below), and a Star row can't size
+        // itself meaningfully against a scrollable container's effectively
+        // unbounded height — it needs to size to its own content instead.
         layout.RowDefinitions.Add(new RowDefinition(220, GridUnitType.Pixel));
         layout.RowDefinitions.Add(new RowDefinition(198, GridUnitType.Pixel));
-        layout.RowDefinitions.Add(new RowDefinition(1, GridUnitType.Star));
+        layout.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
         var thisDeviceCard = BuildThisDeviceCard();
         Grid.SetRow(thisDeviceCard, 0);
@@ -242,7 +245,11 @@ public sealed class MainWindow : Window
         layout.Children.Add(remoteConnectionCard);
         layout.Children.Add(recentConnectionsCard);
 
-        return layout;
+        // The whole page scrolls as one unit — Recent Connections no longer
+        // has its own nested scroll region (see BuildRecentConnectionsCard),
+        // so there's only ever one scrollbar to deal with, not a scroll
+        // region trapped inside another.
+        return new ScrollViewer { Content = layout };
     }
 
     private static Border BuildThisDeviceCard()
@@ -407,7 +414,10 @@ public sealed class MainWindow : Window
 
         var layout = new Grid();
         layout.RowDefinitions.Add(new RowDefinition(58, GridUnitType.Pixel));
-        layout.RowDefinitions.Add(new RowDefinition(1, GridUnitType.Star));
+        // Auto, not Star: this card no longer scrolls internally — it sizes to
+        // however many rows its device cards wrap into, and the whole page
+        // (see BuildContentArea) scrolls past it instead.
+        layout.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
         var headerRow = new Grid();
         headerRow.ColumnDefinitions.Add(new ColumnDefinition(48, GridUnitType.Pixel));
@@ -445,16 +455,10 @@ public sealed class MainWindow : Window
             var (icon, background, foreground) = GetIconStyle(device.Type);
             cardsFlow.Children.Add(new RecentDeviceCard(device, icon, background, foreground));
         }
-
-        var scrollViewer = new ScrollViewer
-        {
-            Content = cardsFlow,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-        };
-        Grid.SetRow(scrollViewer, 1);
+        Grid.SetRow(cardsFlow, 1);
 
         layout.Children.Add(headerRow);
-        layout.Children.Add(scrollViewer);
+        layout.Children.Add(cardsFlow);
 
         card.Child = layout;
         return card;
