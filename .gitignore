@@ -2,3 +2,13 @@ bin/
 obj/
 .vs/
 *.user
+*.suo
+.idea/
+TestResults/
+publish/
+*.nupkg
+
+.artifact-scratch/
+
+.DS_Store
+Thumbs.db
