@@ -20,7 +20,6 @@ public sealed class MainWindow : Window
         MinHeight = 640;
         Width = 1180;
         Height = 840;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(AppTheme.Background);
         CanResize = true;
         // Investigation showed the native title bar's caption buttons don't get
@@ -51,20 +50,30 @@ public sealed class MainWindow : Window
         // above the visible screen (Position.Y came out negative) — a leftover
         // of it assuming native decorations to subtract when centering, which
         // no longer exist now that this window uses WindowDecorations.None.
-        // That cut into the title bar strip, so the caption buttons' top edge
-        // opened off-screen. Re-centering manually against the actual working
-        // area, clamped to stay fully on-screen, fixes that without touching
-        // anything about the window's size or the rest of its behavior.
-        Opened += (_, _) =>
+        //
+        // This computes and sets Position here in the constructor — via
+        // WindowStartupLocation.Manual — instead of CenterScreen, and instead
+        // of correcting it afterward in Opened. Repositioning an
+        // already-visible window (as the previous Opened-based fix did) moves
+        // it out from under a stationary cursor without the OS sending a new
+        // mouse-move event, leaving Avalonia's hover/hit-testing state stale
+        // for the caption buttons until the mouse is actually moved again —
+        // the "first click doesn't register, works on a later attempt"
+        // symptom this caused. Setting Position before the window is ever
+        // shown means it only ever appears once, already in the right place.
+        WindowStartupLocation = WindowStartupLocation.Manual;
         {
-            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
-            if (screen is null) return;
-            var area = screen.WorkingArea;
-            var scale = screen.Scaling;
-            int x = area.X + (int)((area.Width - Width * scale) / 2);
-            int y = area.Y + (int)((area.Height - Height * scale) / 2);
-            Position = new PixelPoint(x, Math.Max(area.Y, y));
-        };
+            var screens = Screens.All;
+            var screen = Screens.Primary ?? (screens.Count > 0 ? screens[0] : null);
+            if (screen is not null)
+            {
+                var area = screen.WorkingArea;
+                var scale = screen.Scaling;
+                int x = area.X + (int)((area.Width - Width * scale) / 2);
+                int y = area.Y + (int)((area.Height - Height * scale) / 2);
+                Position = new PixelPoint(x, Math.Max(area.Y, y));
+            }
+        }
 
         // Enter anywhere triggers Connect, mirroring Form.AcceptButton's effect in the
         // WinForms version — done here via KeyDown instead, since Avalonia's custom,
