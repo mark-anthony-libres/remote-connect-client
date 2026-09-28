@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="RemoteDesktopClient/RemoteDesktopClient.csproj" />
+  <Project Path="RemoteDesktopClient.Tests/RemoteDesktopClient.Tests.csproj" />
 </Solution>

@@ -10,5 +10,10 @@ publish/
 
 .artifact-scratch/
 
+*.env*
+!.env.example
+!.env.release.example
+!.env.publish.example
+
 .DS_Store
 Thumbs.db
